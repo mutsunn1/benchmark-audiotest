@@ -281,7 +281,10 @@ class OmniScorer:
                 mode=mode,
                 raw_text=cached.get("raw_text", ""),
                 parsed=cached.get("parsed", {}),
-                latency_s=0.0,
+                # Replay the latency measured when the call was actually made,
+                # rather than reporting 0 - a cached re-score still needs to
+                # report how slow the model is.
+                latency_s=float(cached.get("latency_s") or 0.0),
                 usage=cached.get("usage", {}),
                 error=cached.get("error"),
                 cache_hit=True,
@@ -300,13 +303,17 @@ class OmniScorer:
 
         self.stats["calls"] += 1
         self.stats["total_latency"] += response.latency_s
-        if use_cache and response.error is None:
+        # Always refresh the cache, even when the caller bypassed reads with
+        # use_cache=False: the reply is a pure function of (model, prompt,
+        # audio), so re-recording it only ever makes the cache more complete.
+        if response.error is None:
             cache_path.write_text(
                 json.dumps(
                     {
                         "raw_text": response.raw_text,
                         "parsed": response.parsed,
                         "usage": response.usage,
+                        "latency_s": response.latency_s,
                         "error": response.error,
                         "model": self.model,
                         "mode": mode,
@@ -371,27 +378,36 @@ def interpret(response: OmniResponse, stimulus: dict, mode: str) -> dict:
         result["predicted_dim"] = None if error_type in ("none", "") else error_type
         result["predicted_unit"] = str(parsed.get("observed_unit") or "") or None
     else:
-        # Open/context: the model transcribed without being told the target, so
-        # compare what it heard against what the audio actually contains. This
-        # scores all three dimensions, not just tone - an initial or final
-        # substitution the model failed to hear shows up here.
-        comparison = compare_transcription(
-            heard_pinyin,
-            stimulus.get("spoken_text", ""),
-            stimulus.get("focus_index", 0),
+        # Open/context: the model transcribed without being told the target.
+        # Two different questions can be asked of that transcript, and
+        # conflating them corrupts the metrics:
+        #
+        #   perception - does the transcript match what the audio actually
+        #                contains? Measures how well the model hears.
+        #   verdict    - does the transcript match what the learner was
+        #                supposed to say? This is the correctness judgement a
+        #                transcription-based CAPT system would make.
+        #
+        # Scoring the *verdict* against `spoken_text` would mark every
+        # correctly-heard error item as "accepted as correct" - inflating the
+        # false accept rate with what is actually a correct perception.
+        perception = compare_transcription(
+            heard_pinyin, stimulus.get("spoken_text", ""), stimulus.get("focus_index", 0)
         )
-        result["transcription"] = comparison
-        if comparison.get("comparable"):
-            result["predicted_correct"] = comparison["match"]
-            result["predicted_dim"] = comparison["dim"]
-            heard_units = comparison.get("heard") or {}
-            result["predicted_unit"] = _unit_label(comparison["dim"], heard_units, heard_tone)
+        verdict = compare_transcription(
+            heard_pinyin, stimulus.get("expected_text", ""), stimulus.get("focus_index", 0)
+        )
+        result["perception"] = perception
+        result["transcription"] = verdict
+        if verdict.get("comparable"):
+            result["predicted_correct"] = verdict["match"]
+            result["predicted_dim"] = verdict["dim"]
+            heard_units = verdict.get("heard") or {}
+            result["predicted_unit"] = _unit_label(verdict["dim"], heard_units, heard_tone)
         else:
-            result["predicted_correct"] = result["tone_correct"]
-            result["predicted_dim"] = (
-                None if result["tone_correct"] else ("tone" if heard_tone else None)
-            )
-            result["predicted_unit"] = f"T{heard_tone}" if heard_tone else None
+            result["predicted_correct"] = None
+            result["predicted_dim"] = None
+            result["predicted_unit"] = None
 
     return result
 

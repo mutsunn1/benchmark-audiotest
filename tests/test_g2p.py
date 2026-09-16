@@ -165,6 +165,34 @@ def test_split_pinyin_rejects_unparseable_input():
     assert split_pinyin("3") is None
 
 
+def test_split_pinyin_decodes_tone_diacritics():
+    """Models answer in `shuì` as readily as `shui4`."""
+    from captbench.g2p import split_pinyin
+
+    assert split_pinyin("mǎ") == ("m", "a", 3)
+    assert split_pinyin("shuì") == ("sh", "uei", 4)
+    assert split_pinyin("wǒ") == ("", "uo", 3)
+    assert split_pinyin("chī") == ("ch", "i", 1)
+    assert split_pinyin("nǚ") == ("n", "v", 3)
+
+
+def test_bare_umlaut_does_not_swallow_the_tone_digit():
+    """ü is a vowel spelling, not a tone mark - `nü3` still carries tone 3."""
+    from captbench.g2p import split_pinyin
+
+    assert split_pinyin("nü3") == ("n", "v", 3)
+    assert split_pinyin("lu:4") == ("l", "v", 4)
+
+
+def test_parse_pinyin_sequence_handles_diacritics_with_trailing_digits():
+    """A real reply: diacritics on the syllables, a bare digit run after."""
+    from captbench.g2p import parse_pinyin_sequence
+
+    seq = parse_pinyin_sequence("wǒ xiǎng chī shuì jiào 3 3 1 4")
+    assert len(seq) == 5
+    assert seq[3] == ("sh", "uei", 4)
+
+
 def test_parse_pinyin_sequence_handles_spaced_and_runtogether():
     from captbench.g2p import parse_pinyin_sequence
 

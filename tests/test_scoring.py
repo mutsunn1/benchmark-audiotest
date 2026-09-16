@@ -280,3 +280,64 @@ def test_scorecard_has_every_section():
     for key in ("detection", "tone_identification", "localisation",
                 "by_family", "by_contrast", "trap", "latency"):
         assert key in card
+
+
+# ------------------------------------------------- omni open-mode semantics
+def _omni(pinyin, tone):
+    from captbench.omni import OmniResponse
+
+    return OmniResponse(mode="open", raw_text="", parsed={"pinyin": pinyin, "tone": tone})
+
+
+def test_open_mode_verdict_compares_against_expected_not_spoken():
+    """A correctly-heard error item must not count as "accepted as correct".
+
+    This was a real bug. Comparing the transcript against what the audio
+    actually contains measures *perception*; using it as the correctness
+    verdict marked every correctly-heard error item as a false accept, which
+    inflated the false accept rate with what were in fact correct perceptions.
+    """
+    from captbench.omni import interpret
+
+    stimulus = {
+        "expected_text": "妈", "spoken_text": "麻", "focus_index": 0,
+        "expected_unit": "T1", "spoken_unit": "T2",
+    }
+    result = interpret(_omni("ma2", 2), stimulus, "open")
+
+    assert result["perception"]["match"] is True, "it heard the audio correctly"
+    assert result["predicted_correct"] is False, "but that is not what was asked for"
+    assert result["predicted_dim"] == "tone"
+
+
+def test_open_mode_accepts_a_genuinely_correct_item():
+    from captbench.omni import interpret
+
+    stimulus = {"expected_text": "妈", "spoken_text": "妈", "focus_index": 0}
+    result = interpret(_omni("ma1", 1), stimulus, "open")
+    assert result["predicted_correct"] is True
+    assert result["predicted_dim"] is None
+
+
+def test_open_mode_flags_an_initial_substitution():
+    from captbench.omni import interpret
+
+    stimulus = {
+        "expected_text": "知", "spoken_text": "资", "focus_index": 0,
+        "expected_unit": "zh", "spoken_unit": "z",
+    }
+    result = interpret(_omni("zi1", 1), stimulus, "open")
+    assert result["predicted_correct"] is False
+    assert result["predicted_dim"] == "initial"
+
+
+def test_open_mode_reads_diacritic_transcriptions():
+    """The model answers in `shuì` as readily as `shui4`."""
+    from captbench.omni import interpret
+
+    stimulus = {
+        "expected_text": "水饺", "spoken_text": "睡觉", "focus_index": 0,
+        "expected_unit": "T3", "spoken_unit": "T4",
+    }
+    result = interpret(_omni("shuì jiào", 4), stimulus, "open")
+    assert result["perception"]["comparable"] is True

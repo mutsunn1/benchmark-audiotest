@@ -10,8 +10,14 @@ and, when they differ, the other one as the error the learner committed:
 Because the substitution is categorical and known by construction, accuracy can
 be measured exactly. This is the strength of a synthetic benchmark and also its
 main limitation: TTS substitutions are clean, whereas real learner errors are
-graded. The `degrade` module exists to generate that graded middle ground by
-warping the F0 contour of a correct clip toward another tone.
+graded - a learner who half-achieves a rising tone is neither correct nor a
+clean substitution.
+
+Nothing here bridges that gap. Generating graded errors would mean warping a
+correct clip's F0 contour part-way toward another tone (Praat's Manipulation
+can do it), which would give a correctness threshold to sweep instead of a
+binary label. It is not implemented; every item in this inventory is either
+wholly correct or a categorical substitution.
 """
 
 from __future__ import annotations

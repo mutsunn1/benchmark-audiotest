@@ -268,26 +268,70 @@ def diff_dimension(
 
 _INITIALS_BY_LENGTH = tuple(sorted(INITIALS, key=len, reverse=True))
 
+#: Tone-diacritic vowel -> (base vowel, tone). Models answer in either spelling
+#: (`shui4` or `shuì`) and sometimes both at once, so both are decoded.
+_ACCENTS: dict[str, tuple[str, int]] = {}
+for _vowel, _marked in (
+    ("a", "āáǎà"),
+    ("o", "ōóǒò"),
+    ("e", "ēéěè"),
+    ("i", "īíǐì"),
+    ("u", "ūúǔù"),
+    ("v", "ǖǘǚǜ"),
+):
+    for _tone, _char in enumerate(_marked, start=1):
+        _ACCENTS[_char] = (_vowel, _tone)
+# NB: a bare `ü` is deliberately NOT in this table. It is a vowel spelling, not
+# a tone mark - treating it as one would swallow the tone digit in `nü3`.
+
+
+def _strip_accents(text: str) -> tuple[str, int | None]:
+    """Fold tone diacritics into plain vowels; return (plain, tone or None)."""
+    tone: int | None = None
+    out: list[str] = []
+    for char in text:
+        entry = _ACCENTS.get(char)
+        if entry is None:
+            out.append(char)
+        else:
+            base, marked_tone = entry
+            out.append(base)
+            if tone is None:
+                tone = marked_tone
+    return "".join(out), tone
+
 
 def split_pinyin(value: str) -> tuple[str, str, int] | None:
     """Parse a pinyin syllable into (initial, final, tone).
 
-    Accepts the spellings a model is likely to emit: `ma3`, `zhang1`, `nv3`,
-    `nü3`, `lu:4`, `ma`, with or without spaces. Returns None if nothing
+    Accepts every spelling a model is likely to emit: `ma3`, `zhang1`, `nv3`,
+    `nü3`, `lu:4`, `ma`, `mǎ`, and `ma3 / ma`. Returns None if nothing
     parseable is found. The output uses the same conventions as `analyze`, so
     a model's transcription and a reference syllable compare directly.
     """
     if not value:
         return None
-    text = value.strip().lower().replace("u:", "v").replace("ü", "v")
-    text = text.replace("'", "").replace(" ", "")
+    text = (
+        value.strip()
+        .lower()
+        .replace("u:", "v")
+        .replace("ü", "v")  # a vowel spelling, folded before tone decoding
+        .replace("'", "")
+        .replace(" ", "")
+    )
     if not text:
         return None
 
-    tone = 5
-    if text[-1].isdigit():
-        tone = int(text[-1])
-        text = text[:-1]
+    text, tone = _strip_accents(text)
+    if not text:
+        return None
+
+    if tone is None:
+        if text[-1].isdigit():
+            tone = int(text[-1])
+            text = text[:-1]
+        else:
+            tone = 5
     if not text:
         return None
 
