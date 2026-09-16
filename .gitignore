@@ -1,0 +1,12 @@
+# Synthesised corpus, results and caches - all reproducible from `captbench build`
+data/
+
+# Credentials. Never commit this.
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+*.egg-info/
