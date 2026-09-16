@@ -1,0 +1,1201 @@
+<title>传统 CAPT 管线详解</title>
+<style>
+  /* ---- tokens: light is the base, defined first and completely ---- */
+  :root {
+    --paper:      #F6F8F8;
+    --card:       #FFFFFF;
+    --ink:        #12181A;
+    --body:       #2A3336;
+    --muted:      #617074;
+    --faint:      #8B999D;
+    --line:       #DDE4E5;
+    --line-soft:  #EAEFEF;
+    --accent:     #0F5C63;
+    --accent-tint:#E2EFF0;
+    --signal:     #B4531A;
+    --signal-tint:#F6E9DF;
+    --good:       #3F6B4A;
+    --good-tint:  #E4EEE6;
+    --code-bg:    #EFF3F3;
+
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC",
+             "Source Han Serif SC", Georgia, serif;
+    --sans:  -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+             "Hiragino Sans GB", "Microsoft YaHei", Roboto, sans-serif;
+    --mono:  ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+             "Liberation Mono", monospace;
+
+    --measure: 68ch;
+    --step-0: 1rem;
+    --step-1: 1.14rem;
+    --step-2: 1.38rem;
+    --step-3: 1.85rem;
+    --step-4: 2.5rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:      #0E1416;
+      --card:       #151E20;
+      --ink:        #E8EEEF;
+      --body:       #C6D0D2;
+      --muted:      #93A2A6;
+      --faint:      #6E7E82;
+      --line:       #263335;
+      --line-soft:  #1D282A;
+      --accent:     #5FB8C0;
+      --accent-tint:#123033;
+      --signal:     #D98A4E;
+      --signal-tint:#2E2015;
+      --good:       #7FB98D;
+      --good-tint:  #16261A;
+      --code-bg:    #101A1C;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:      #0E1416;
+    --card:       #151E20;
+    --ink:        #E8EEEF;
+    --body:       #C6D0D2;
+    --muted:      #93A2A6;
+    --faint:      #6E7E82;
+    --line:       #263335;
+    --line-soft:  #1D282A;
+    --accent:     #5FB8C0;
+    --accent-tint:#123033;
+    --signal:     #D98A4E;
+    --signal-tint:#2E2015;
+    --good:       #7FB98D;
+    --good-tint:  #16261A;
+    --code-bg:    #101A1C;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--body);
+    font-family: var(--sans);
+    font-size: var(--step-0);
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .shell {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 4rem 1.5rem 6rem;
+    display: grid;
+    grid-template-columns: 190px minmax(0, 1fr);
+    gap: 4rem;
+    align-items: start;
+  }
+
+  /* ---- masthead ---- */
+  .masthead {
+    grid-column: 1 / -1;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 2.25rem;
+    margin-bottom: 3rem;
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: .74rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 1.1rem;
+  }
+  h1 {
+    font-family: var(--serif);
+    font-size: var(--step-4);
+    line-height: 1.18;
+    color: var(--ink);
+    margin: 0 0 1rem;
+    text-wrap: balance;
+    font-weight: 600;
+  }
+  .standfirst {
+    font-size: var(--step-1);
+    color: var(--muted);
+    max-width: 62ch;
+    margin: 0;
+    line-height: 1.7;
+  }
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2.5rem;
+    margin-top: 2rem;
+  }
+  .fact b {
+    display: block;
+    font-family: var(--mono);
+    font-size: 1.5rem;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+  }
+  .fact span {
+    font-size: .82rem;
+    color: var(--muted);
+  }
+
+  /* ---- contents rail ---- */
+  nav {
+    position: sticky;
+    top: 2.5rem;
+    font-size: .84rem;
+    line-height: 1.5;
+  }
+  nav p {
+    font-family: var(--mono);
+    font-size: .68rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin: 0 0 .85rem;
+  }
+  nav ol { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
+  nav a {
+    color: var(--muted);
+    text-decoration: none;
+    display: flex;
+    gap: .55rem;
+    border-bottom: 1px solid transparent;
+    padding-bottom: 1px;
+  }
+  nav a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+  nav a span { font-family: var(--mono); color: var(--faint); font-size: .74rem; padding-top: .12rem; }
+
+  /* ---- prose ---- */
+  main { min-width: 0; display: grid; gap: 4.5rem; }
+  section { scroll-margin-top: 2rem; }
+  h2 {
+    font-family: var(--serif);
+    font-size: var(--step-3);
+    color: var(--ink);
+    margin: 0 0 1.4rem;
+    font-weight: 600;
+    text-wrap: balance;
+  }
+  h3 {
+    font-family: var(--sans);
+    font-size: var(--step-2);
+    color: var(--ink);
+    margin: 2.6rem 0 .9rem;
+    font-weight: 600;
+    text-wrap: balance;
+  }
+  h4 {
+    font-family: var(--mono);
+    font-size: .8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin: 2.2rem 0 .7rem;
+    font-weight: 500;
+  }
+  main > section > p,
+  main > section > ul,
+  main > section > ol { max-width: var(--measure); }
+  p { margin: 0 0 1.15rem; }
+  a { color: var(--accent); }
+  strong { color: var(--ink); font-weight: 600; }
+  em { color: var(--ink); font-style: italic; }
+
+  ul, ol { padding-left: 1.3rem; margin: 0 0 1.15rem; }
+  li { margin-bottom: .5rem; }
+  li::marker { color: var(--faint); }
+
+  code {
+    font-family: var(--mono);
+    font-size: .87em;
+    background: var(--code-bg);
+    padding: .12em .38em;
+    border-radius: 3px;
+    color: var(--ink);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line-soft);
+    border-radius: 6px;
+    padding: 1.1rem 1.25rem;
+    overflow-x: auto;
+    font-size: .82rem;
+    line-height: 1.65;
+    margin: 0 0 1.4rem;
+  }
+  pre code { background: none; padding: 0; font-size: 1em; }
+
+  /* ---- tables ---- */
+  .tablewrap { overflow-x: auto; margin: 0 0 1.6rem; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: .87rem;
+    font-variant-numeric: tabular-nums;
+  }
+  th, td {
+    text-align: left;
+    padding: .62rem .8rem;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  th {
+    font-family: var(--mono);
+    font-size: .7rem;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--faint);
+    font-weight: 500;
+    border-bottom-color: var(--line);
+  }
+  td.num, th.num { text-align: right; font-family: var(--mono); }
+  tbody tr:hover { background: var(--card); }
+  td.hi { color: var(--good); font-weight: 600; }
+  td.lo { color: var(--signal); font-weight: 600; }
+  caption {
+    caption-side: bottom;
+    text-align: left;
+    font-size: .8rem;
+    color: var(--muted);
+    padding-top: .7rem;
+    line-height: 1.6;
+  }
+
+  /* ---- figures ---- */
+  figure {
+    margin: 2rem 0 2.4rem;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 1.6rem 1.5rem 1.2rem;
+    overflow-x: auto;
+  }
+  figure svg { display: block; width: 100%; max-width: 100%; height: auto; color: var(--body); }
+  figcaption {
+    font-size: .82rem;
+    color: var(--muted);
+    line-height: 1.65;
+    margin-top: 1.1rem;
+    padding-top: .95rem;
+    border-top: 1px solid var(--line-soft);
+    max-width: 74ch;
+  }
+
+  /* ---- callouts ---- */
+  .note {
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 1.1rem 1.25rem;
+    margin: 0 0 1.6rem;
+    background: var(--card);
+    max-width: var(--measure);
+    font-size: .93rem;
+  }
+  .note.warn { background: var(--signal-tint); border-color: transparent; }
+  .note.good { background: var(--good-tint); border-color: transparent; }
+  .note b {
+    display: block;
+    font-family: var(--mono);
+    font-size: .72rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    margin-bottom: .5rem;
+  }
+  .note.warn b { color: var(--signal); }
+  .note.good b { color: var(--good); }
+  .note p:last-child { margin-bottom: 0; }
+
+  /* ---- bug entries ---- */
+  .bug { border-top: 1px solid var(--line); padding-top: 1.5rem; margin-top: 1.5rem; }
+  .bug:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
+  .bug h3 { margin-top: 0; }
+  .bug dl {
+    margin: 0;
+    display: grid;
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+    gap: .35rem 1rem;
+    font-size: .92rem;
+    max-width: var(--measure);
+  }
+  .bug dt {
+    font-family: var(--mono);
+    font-size: .7rem;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--faint);
+    padding-top: .28rem;
+  }
+  .bug dd { margin: 0; }
+  .bug dd p { margin: 0 0 .6rem; }
+
+  footer {
+    grid-column: 1 / -1;
+    margin-top: 2rem;
+    padding-top: 1.6rem;
+    border-top: 1px solid var(--line);
+    font-size: .82rem;
+    color: var(--faint);
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem 1.5rem;
+  }
+
+  @media (max-width: 880px) {
+    .shell { grid-template-columns: minmax(0, 1fr); gap: 2.5rem; padding-top: 2.5rem; }
+    nav { position: static; }
+    nav ol { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+    h1 { font-size: 2rem; }
+  }
+</style>
+
+<div class="shell">
+
+  <header class="masthead">
+    <p class="eyebrow">captbench · 实现说明</p>
+    <h1>传统 CAPT 管线详解</h1>
+    <p class="standfirst">
+      一台从零手写的普通话发音评测引擎：不含任何端到端模型，靠信号处理、
+      模板对齐与说话人自适应的声学测量做判断。这是它的结构、它的校准纪律，
+      以及开发过程中真实踩出来的六个坑。
+    </p>
+    <div class="facts">
+      <div class="fact"><b>2 048</b><span>行 Python（引擎本体）</span></div>
+      <div class="fact"><b>88.7%</b><span>同说话人判定准确率</span></div>
+      <div class="fact"><b>6.0%</b><span>误收率 FAR</span></div>
+      <div class="fact"><b>&lt;10 ms</b><span>单条中位延迟</span></div>
+    </div>
+  </header>
+
+  <nav>
+    <p>目录</p>
+    <ol>
+      <li><a href="#scope"><span>01</span>定位与边界</a></li>
+      <li><a href="#flow"><span>02</span>管线全貌</a></li>
+      <li><a href="#frontend"><span>03</span>信号前端</a></li>
+      <li><a href="#tone"><span>04</span>F0 与五度 T 值</a></li>
+      <li><a href="#align"><span>05</span>强制对齐</a></li>
+      <li><a href="#tonemodel"><span>06</span>声调判定</a></li>
+      <li><a href="#segmental"><span>07</span>段音判定</a></li>
+      <li><a href="#calibration"><span>08</span>校准纪律</a></li>
+      <li><a href="#results"><span>09</span>实测表现</a></li>
+      <li><a href="#bugs"><span>10</span>踩过的六个坑</a></li>
+      <li><a href="#limits"><span>11</span>已知短板</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <!-- ============================================ 01 -->
+    <section id="scope">
+      <h2>定位与边界</h2>
+      <p>
+        这个引擎存在的意义是当一个<strong>可对照的基线</strong>。调研报告描述了商用中文发音
+        评测的做法——强制对齐、GOP、五度 T 值、调型分类——但描述和实现之间隔着很多
+        只有在写的时候才会撞上的决定。这里把那些决定全部显式化，并且只用
+        numpy / scipy / Praat，不引入任何训练好的声学模型。
+      </p>
+      <p>先说清楚它<em>不是</em>什么：</p>
+      <ul>
+        <li><strong>不是商业引擎的水平。</strong>讯飞、SpeechSuper 用 DNN-HMM 在海量母语者语料上训练，
+          这里没有。拿它的绝对分数去对标商业产品是误用。</li>
+        <li><strong>没有真正的 GOP。</strong>报告里的发音优度算法要一个音素后验概率矩阵，
+          那需要声学模型。这里的替代品是模板 DTW 距离——同一位置的同一个音，
+          与参考读音的倒谱距离。它保留了"像不像"的排序，但失去了 GOP 的概率解释。</li>
+        <li><strong>不是端到端。</strong>每个判定都能追溯到一条曲线、一个阈值、一次测量。
+          这是它的优点，也是它不准的原因。</li>
+      </ul>
+      <div class="note">
+        <b>代码地图</b>
+        <p>
+          <code>dsp.py</code> 信号前端 · <code>f0.py</code> 基频与五度 T 值 ·
+          <code>align.py</code> 模板强制对齐 · <code>tone_model.py</code> 说话人自适应声调原型 ·
+          <code>segmental.py</code> 段音物理线索与自标定阈值 ·
+          <code>traditional.py</code> 判定聚合 · <code>benchmark.py</code> 校准调度。
+        </p>
+      </div>
+    </section>
+
+    <!-- ============================================ 02 -->
+    <section id="flow">
+      <h2>管线全貌</h2>
+      <p>
+        一条音频进来，分成三路特征；三路汇进强制对齐，切出每个音节的时窗；
+        然后从两个互不相干的轴分别判断，最后按证据强度挑一个结论。
+      </p>
+
+      <figure>
+        <svg viewBox="0 0 900 470" role="img"
+             aria-label="管线流程图：音频分三路提取特征，汇入模板 DTW 强制对齐切出音节时窗，再分超音段与音段两轴判断，最后按优先级聚合为判定">
+          <defs>
+            <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+          </defs>
+          <g font-family="var(--mono), monospace" font-size="12.5" fill="currentColor"
+             stroke="none">
+
+            <!-- input -->
+            <rect x="16" y="196" width="104" height="58" rx="6"
+                  fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="68" y="220" text-anchor="middle">16 kHz</text>
+            <text x="68" y="238" text-anchor="middle">单声道 WAV</text>
+
+            <!-- fan -->
+            <path d="M120 225 H158" stroke="currentColor" stroke-width="1.2"
+                  marker-end="url(#ar)" fill="none"/>
+            <path d="M158 225 V86 H196" stroke="currentColor" stroke-width="1.2"
+                  marker-end="url(#ar)" fill="none"/>
+            <path d="M158 225 H196" stroke="currentColor" stroke-width="1.2"
+                  marker-end="url(#ar)" fill="none"/>
+            <path d="M158 225 V364 H196" stroke="currentColor" stroke-width="1.2"
+                  marker-end="url(#ar)" fill="none"/>
+
+            <!-- three feature streams -->
+            <rect x="196" y="58" width="196" height="56" rx="6"
+                  fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="210" y="81">39 维 MFCC</text>
+            <text x="210" y="99" font-size="11" opacity=".72">预加重 .97 · 25/10 ms</text>
+
+            <rect x="196" y="197" width="196" height="56" rx="6"
+                  fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="210" y="220">F0 轨迹</text>
+            <text x="210" y="238" font-size="11" opacity=".72">Praat 自相关 · 70–450 Hz</text>
+
+            <rect x="196" y="336" width="196" height="56" rx="6"
+                  fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="210" y="359">逐帧周期度</text>
+            <text x="210" y="377" font-size="11" opacity=".72">自相关峰 · 用于 VOT</text>
+
+            <!-- converge into alignment -->
+            <path d="M392 86 H436 V206 H470" stroke="currentColor" stroke-width="1.2"
+                  marker-end="url(#ar)" fill="none"/>
+            <path d="M392 225 H470" stroke="currentColor" stroke-width="1.2"
+                  marker-end="url(#ar)" fill="none"/>
+            <path d="M392 364 H436 V244 H470" stroke="currentColor" stroke-width="1.2"
+                  marker-end="url(#ar)" fill="none"/>
+
+            <rect x="470" y="170" width="176" height="110" rx="6"
+                  fill="none" stroke="currentColor" stroke-width="1.6"/>
+            <text x="486" y="196">模板 DTW</text>
+            <text x="486" y="214">强制对齐</text>
+            <text x="486" y="238" font-size="11" opacity=".72">参考读音的边界</text>
+            <text x="486" y="254" font-size="11" opacity=".72">经 warping 路径映射过来</text>
+
+            <path d="M646 210 H684 V132 H716" stroke="currentColor" stroke-width="1.2"
+                  marker-end="url(#ar)" fill="none"/>
+            <path d="M646 242 H684 V320 H716" stroke="currentColor" stroke-width="1.2"
+                  marker-end="url(#ar)" fill="none"/>
+
+            <!-- two axes -->
+            <rect x="716" y="92" width="170" height="80" rx="6"
+                  fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="730" y="115">超音段 · 声调</text>
+            <text x="730" y="135" font-size="11" opacity=".72">五度 T 值 →</text>
+            <text x="730" y="151" font-size="11" opacity=".72">最近声调原型 DTW</text>
+
+            <rect x="716" y="280" width="170" height="80" rx="6"
+                  fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="730" y="303">音段 · 声韵母</text>
+            <text x="730" y="323" font-size="11" opacity=".72">谱重心 / VOT /</text>
+            <text x="730" y="339" font-size="11" opacity=".72">F3 / 鼻音收敛</text>
+
+            <path d="M801 172 V206" stroke="currentColor" stroke-width="1.2"
+                  marker-end="url(#ar)" fill="none"/>
+            <path d="M801 280 V246" stroke="currentColor" stroke-width="1.2"
+                  marker-end="url(#ar)" fill="none"/>
+
+            <!-- aggregate -->
+            <rect x="700" y="206" width="186" height="42" rx="6"
+                  fill="none" stroke="currentColor" stroke-width="1.6"/>
+            <text x="714" y="232">判定聚合（优先级阶梯）</text>
+
+          </g>
+          <g font-family="var(--mono), monospace" font-size="11" fill="currentColor" opacity=".55">
+            <text x="16" y="404">判定优先级：标定线索越界 &gt; 声调原型不符 &gt; 模板更近</text>
+            <text x="16" y="452">每一段都能追到一条曲线、一个阈值、一次测量——这是它可审计的原因，也是它不准的原因</text>
+          </g>
+        </svg>
+        <figcaption>
+          三路特征并行提取，汇入对齐后切出音节时窗，再由两个独立的判定轴分别产出证据。
+          两条轴互不依赖：声调判定只看 F0 轨迹，段音判定只看频谱与时间测量，
+          所以声母错不会污染声调分，反之亦然——这一点正是报告强调的"声韵调解耦"。
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- ============================================ 03 -->
+    <section id="frontend">
+      <h2>信号前端</h2>
+      <p>
+        全部按报告第 2 节描述的参数实现。这一段没有争议，照做即可——
+        值得说明的只有每帧额外算出来的三个量，它们后面各自有用处。
+      </p>
+
+      <div class="tablewrap">
+        <table>
+          <caption>信号前端参数。前五个直接来自报告；后三个是为后续判定额外提取的。</caption>
+          <thead>
+            <tr><th>参数</th><th class="num">取值</th><th>用途</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>采样率</td><td class="num">16 kHz</td><td>所有输入统一重采样到单声道 16 kHz</td></tr>
+            <tr><td>预加重</td><td class="num">0.97</td><td><code>H(z) = 1 − 0.97z⁻¹</code>，补偿口唇辐射的 −6 dB/oct</td></tr>
+            <tr><td>帧长 / 帧移</td><td class="num">25 / 10 ms</td><td>汉明窗，抑制截断引起的频谱泄露</td></tr>
+            <tr><td>梅尔滤波器</td><td class="num">26</td><td>HTK 三角滤波组</td></tr>
+            <tr><td>MFCC 维数</td><td class="num">13 + Δ + ΔΔ</td><td>合计 39 维，DTW 与模板比对用前 26 维</td></tr>
+            <tr><td>RMS 包络</td><td class="num">逐帧</td><td>音节切分、浊音段定位</td></tr>
+            <tr><td>谱重心</td><td class="num">逐帧</td><td>平翘舌判定（后面会讲为什么这个量在这里要小心）</td></tr>
+            <tr><td>自相关周期度</td><td class="num">逐帧</td><td>浊音起始判定 → 嗓音起始时间 VOT</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        倒谱均值归一化（<code>cmn</code>）只用**减均值**，刻意不做方差归一化。
+        理由见第 10 节第 3 个坑：单个音节只有 5–15 帧，在这个长度上除以标准差
+        会把噪声放大到单位方差，让两个不同的音节归一化成同一个形状，
+        DTW 距离塌成 0。
+      </p>
+    </section>
+
+    <!-- ============================================ 04 -->
+    <section id="tone">
+      <h2>F0 与五度 T 值</h2>
+      <p>
+        声调是普通话绕不开的维度，所以除了倒谱特征，还要并行跑一路专门的基频跟踪。
+        这里直接用 Praat 的自相关法（<code>parselmouth</code> 的
+        <code>to_pitch_ac</code>，floor 70 Hz / ceiling 450 Hz，voicing threshold 0.45），
+        另有一个 numpy 版的自相关追踪器作为后备。
+      </p>
+
+      <h3>石锋五度变换</h3>
+      <p>
+        绝对赫兹没有意义——成年男性基频 80–160 Hz，女性 150–300 Hz，
+        同一个调值在不同人嘴里差一倍。报告给的解法是石锋的对数半音变换：
+      </p>
+      <pre><code>T = 5 · (log₁₀F₀ − log₁₀Fmin) / (log₁₀Fmax − log₁₀Fmin)</code></pre>
+      <p>
+        把说话人的基频动态范围投影到赵元任的五度坐标系上。
+        代码里是 <code>f0.to_t_values()</code>，配一个 <code>F0Range</code> 承载
+        (Fmin, Fmax)。
+      </p>
+
+      <div class="note warn">
+        <b>关键约束</b>
+        <p>
+          Fmin / Fmax <strong>必须来自说话人自己的校准集</strong>，绝不能用被测的那一条音频
+          自己算。否则一条平调会被它自己的窄范围拉伸成满量程的起伏，
+          区分度直接消失。同样重要的是：<strong>校准语料的语体必须和被测语体一致</strong>——
+          这一条踩过坑，见第 10 节第 2 个。
+        </p>
+      </div>
+
+      <figure>
+        <svg viewBox="0 0 860 340" role="img"
+             aria-label="两幅折线图对比：左图用整句的基频范围去投影单字，平调被压成下降；右图用单字自己的范围，平调保持平坦">
+          <defs>
+            <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+          </defs>
+          <g font-family="var(--mono), monospace" font-size="11.5" fill="currentColor" stroke="none">
+
+            <!-- ============ panel A : wrong range ============ -->
+            <text x="30" y="26" font-size="12.5">A · 用整句范围投影单字（错）</text>
+
+            <!-- axes -->
+            <path d="M70 240 V60" stroke="currentColor" stroke-width="1" opacity=".45" fill="none"/>
+            <path d="M70 240 H300" stroke="currentColor" stroke-width="1" opacity=".45" fill="none"/>
+            <text x="52" y="64" text-anchor="end">5</text>
+            <text x="52" y="124" text-anchor="end">3</text>
+            <text x="52" y="184" text-anchor="end">1</text>
+            <text x="52" y="244" text-anchor="end">0</text>
+
+            <!-- gridlines -->
+            <g opacity=".16" stroke="currentColor" stroke-width="1">
+              <path d="M70 60 H300"/><path d="M70 120 H300"/><path d="M70 180 H300"/>
+            </g>
+
+            <!-- the flattened level tone -->
+            <path d="M78 96 L120 108 L165 124 L210 148 L255 176 L292 196"
+                  fill="none" style="stroke: var(--signal)" stroke-width="2.6" stroke-linecap="round"/>
+            <text x="70" y="262" style="fill: var(--signal)" font-size="10.5">
+              阴平被读成下滑
+            </text>
+
+            <!-- reference: what a T4 looks like -->
+            <path d="M78 88 L120 106 L165 132 L210 166 L255 200 L292 232"
+                  fill="none" stroke="currentColor" stroke-width="1.6"
+                  stroke-dasharray="4 3" opacity=".5"/>
+            <text x="300" y="88" opacity=".7" font-size="10.5">— 去声原型的形状</text>
+
+            <text x="70" y="280" font-size="11" opacity=".75">单字 F0 只占整句范围的窄带 →</text>
+            <text x="70" y="297" font-size="11" opacity=".75">轻微的下降被放大成满量程的滑落</text>
+
+            <!-- divider -->
+            <path d="M430 40 V300" stroke="currentColor" stroke-width="1"
+                  opacity=".2" stroke-dasharray="3 4"/>
+
+            <!-- ============ panel B : matched range ============ -->
+            <text x="470" y="26" font-size="12.5">B · 用单字自己的范围（对）</text>
+
+            <path d="M510 240 V60" stroke="currentColor" stroke-width="1" opacity=".45" fill="none"/>
+            <path d="M510 240 H740" stroke="currentColor" stroke-width="1" opacity=".45" fill="none"/>
+            <text x="492" y="64" text-anchor="end">5</text>
+            <text x="492" y="124" text-anchor="end">3</text>
+            <text x="492" y="184" text-anchor="end">1</text>
+            <text x="492" y="244" text-anchor="end">0</text>
+
+            <g opacity=".16" stroke="currentColor" stroke-width="1">
+              <path d="M510 60 H740"/><path d="M510 120 H740"/><path d="M510 180 H740"/>
+            </g>
+
+            <!-- level tone stays level -->
+            <path d="M518 74 L560 70 L605 72 L650 70 L695 74 L732 76"
+                  fill="none" style="stroke: var(--good)" stroke-width="2.6" stroke-linecap="round"/>
+            <text x="732" y="60" text-anchor="end" style="fill: var(--good)" font-size="10.5">
+              阴平保持平坦高位
+            </text>
+
+            <!-- T1 prototype -->
+            <path d="M518 70 H732" fill="none" stroke="currentColor" stroke-width="1.6"
+                  stroke-dasharray="4 3" opacity=".5"/>
+            <text x="740" y="96" opacity=".7" font-size="10.5">— 阴平原型</text>
+
+            <text x="510" y="280" font-size="11" opacity=".75">范围与语体都匹配 →</text>
+            <text x="510" y="297" font-size="11" opacity=".75">轮廓落在它该在的位置</text>
+
+          </g>
+        </svg>
+        <figcaption>
+          同一个阴平，两套 Fmin / Fmax 投影出完全不同的形状。左图是实测中真实发生过的失败：
+          校准集里混入了整句（范围 122–351 Hz），单字却只有 150–274 Hz 的跨度，
+          于是"平"被投影成"降"，被声调原型判成了去声。修法是让校准集与被测语体对齐——
+          单字用单字范围，整句用整句范围，两侧都要对齐。
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- ============================================ 05 -->
+    <section id="align">
+      <h2>强制对齐</h2>
+      <p>
+        真正的强制对齐要一张声学模型构成的搜索图，用 Viterbi 在目标音素序列上找最优路径。
+        这里没有声学模型，于是用了前 DNN 时代的经典做法：<strong>模板 DTW</strong>。
+      </p>
+      <ol>
+        <li>拿到一段干净朗读的参考音频（teacher 音色，见第 8 节）。</li>
+        <li>在参考上按能量包络找 <em>n</em> 个音节核——平滑 RMS 的局部极大值，
+            彼此至少隔 0.07 秒，取最强的 <em>n</em> 个。</li>
+        <li>相邻音节核之间的能量谷作为边界，首尾取浊音段的两端。</li>
+        <li>把被测音频的 MFCC 序列与参考的 MFCC 序列做带 Sakoe-Chiba 约束的 DTW，
+            沿 warping 路径把参考的音节边界映射到被测的时间轴上。</li>
+      </ol>
+      <p>
+        产出和 Viterbi 强制对齐一样，是每个音节的 [t<sub>s</sub>, t<sub>e</sub>]。
+        代价是需要一段参考录音，而不是一张搜索图。
+      </p>
+      <p>
+        单音节条目（本基准的绝大多数）走捷径：整个浊音段就是一个音节，
+        不做 DTW。对齐真正发挥作用的是整句的陷阱题。
+      </p>
+    </section>
+
+    <!-- ============================================ 06 -->
+    <section id="tonemodel">
+      <h2>声调判定</h2>
+      <p>
+        这是整个引擎里最花心思的一段，因为<strong>绝对模板在真实音色上不 work</strong>。
+      </p>
+      <p>
+        教科书上的四声是 55 / 35 / 214 / 51——假设说话人每个调都跑满自己的音域。
+        实测不是这样。本基准用的 `say` 女声里，阳平只从 195 Hz 升到 223 Hz，
+        而阴平稳稳坐在 256–280 Hz。把这条阳平拿去和"3→5"的绝对模板比，
+        它更像平调；和阴平比，又不够高。
+      </p>
+
+      <div class="note good">
+        <b>解法</b>
+        <p>
+          用<strong>说话人自适应的原型</strong>替代绝对模板：从该说话人自己的正确读音里
+          拟合每个调的平均 T 值轮廓，再按 DTW 最近原型分类。这正是发音评测一直以来的
+          校准集做法，报告里"Fmin / Fmax 取自说话人的整句或发音校准集"也是同一个思路，
+          只是把范围扩展到了轮廓本身。
+        </p>
+      </div>
+
+      <p>原型拟合出来的样子（同说话人条件）：</p>
+      <div class="tablewrap">
+        <table>
+          <caption>
+            左列为单字原型（拟合自孤立字），右列为整句原型（拟合自校准句）。
+            整句原型的 <em>spread</em> 明显更大——句子内部的声调实现本来就更多变，
+            而校准句只有两条。
+          </caption>
+          <thead>
+            <tr>
+              <th>调类</th>
+              <th class="num">单字：起点→终点</th>
+              <th class="num">spread</th>
+              <th class="num">整句：起点→终点</th>
+              <th class="num">spread</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>阴平 T1</td><td class="num">4.3 → 4.6</td><td class="num">0.06</td><td class="num">4.7 → 4.3</td><td class="num">0.27</td></tr>
+            <tr><td>阳平 T2</td><td class="num">2.8 → 3.6</td><td class="num">0.07</td><td class="num">2.3 → 2.2</td><td class="num">0.23</td></tr>
+            <tr><td>上声 T3</td><td class="num">2.9 → 0.9</td><td class="num">0.07</td><td class="num">3.6 → 1.8</td><td class="num">0.51</td></tr>
+            <tr><td>去声 T4</td><td class="num">3.9 → −0.2</td><td class="num">0.18</td><td class="num">3.6 → 2.6</td><td class="num">0.66</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        分类时算被测轮廓到每个原型的 DTW 距离，再除以<strong>该类自己的 spread</strong>——
+        一个说话人本来就实现得不稳定的调，不该因此被罚。得分最低的原型即判定结果。
+        校准集的自我距离给出一个接受半径，超出半径会附加一条"即便是最近的调也不典型"的说明。
+      </p>
+      <p>
+        原型只从<strong>正确读音</strong>拟合，并且对每个条目<strong>留出它所属的最小对立组</strong>
+        （leave-one-contrast-out）：判"妈"时，原型由 shi / bao / cai / tang / mao 拟合。
+        这测的是跨音节泛化，不是对被测音节的记忆。
+      </p>
+    </section>
+
+    <!-- ============================================ 07 -->
+    <section id="segmental">
+      <h2>段音判定</h2>
+      <p>
+        声母韵母的判定走另一条路：每个对立组配一条物理线索，阈值<strong>由两侧参考读音
+        的实测中点自动定出</strong>，不写死常数。
+      </p>
+
+      <div class="tablewrap">
+        <table>
+          <caption>
+            <em>separation</em> 是两侧参考读数之差相对其量级的比值，衡量这条线索在
+            <strong>当前音色</strong>下到底分不分得开；低于 0.05 时引擎会附一条"线索微弱"的告警。
+            注意它<strong>不预测准确率</strong>——它衡量的是参考读音之间好不好分，
+            不是被测条目会落在边界哪一侧。
+          </caption>
+          <thead>
+            <tr>
+              <th>对立组</th><th>物理线索</th>
+              <th class="num">阈值</th><th class="num">两侧读数</th>
+              <th class="num">separation</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>zh / z</td><td>摩擦段高低频能量比</td><td class="num">2.65</td><td class="num">12.56 vs −7.25</td><td class="num hi">1.00</td></tr>
+            <tr><td>sh / s</td><td>摩擦段高低频能量比</td><td class="num">5.69</td><td class="num">11.86 vs −0.48</td><td class="num hi">1.00</td></tr>
+            <tr><td>g / k</td><td>VOT</td><td class="num">0.01 s</td><td class="num">0.03 vs 0.00</td><td class="num hi">1.00</td></tr>
+            <tr><td>d / t</td><td>VOT</td><td class="num">0.07 s</td><td class="num">0.12 vs 0.01</td><td class="num hi">0.85</td></tr>
+            <tr><td>b / p</td><td>VOT</td><td class="num">0.04 s</td><td class="num">0.08 vs 0.01</td><td class="num hi">0.78</td></tr>
+            <tr><td>en / eng</td><td>韵尾 F2</td><td class="num">793 Hz</td><td class="num">1175 vs 411</td><td class="num">0.48</td></tr>
+            <tr><td>j / q</td><td>VOT</td><td class="num">0.10 s</td><td class="num">0.13 vs 0.07</td><td class="num">0.30</td></tr>
+            <tr><td>an / ang</td><td>韵尾 F3−F2 收敛</td><td class="num">1087 Hz</td><td class="num">785 vs 1388</td><td class="num">0.28</td></tr>
+            <tr><td>ch / c</td><td>摩擦段高低频能量比</td><td class="num">−5.47</td><td class="num">−4.10 vs −6.84</td><td class="num lo">0.25</td></tr>
+            <tr><td>ü / i</td><td>F3（后段）</td><td class="num">3401 Hz</td><td class="num">3691 vs 3111</td><td class="num lo">0.09</td></tr>
+            <tr><td>ü / i（绿/力）</td><td>F3</td><td class="num">3313 Hz</td><td class="num">3536 vs 3090</td><td class="num lo">0.07</td></tr>
+            <tr><td>in / ing</td><td>韵尾 F3−F2 收敛</td><td class="num">1456 Hz</td><td class="num">1365 vs 1547</td><td class="num lo">0.06</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        每个家族还备了几个候选测量，标定时全部算一遍，<strong>留下分离得最开的那个</strong>。
+        因为这种自动选择，圆唇组最后没用 F3 本身而用了它的派生量——
+        这也说明单凭一条参考读音定阈值是有噪声的。
+      </p>
+      <p>
+        没有专用线索的对立组（r/l、n/l、uo/e）走兜底：把被测音节和两侧参考各做一次 DTW，
+        谁近算谁。<strong>判据是距离差，不是比值</strong>——因为完美匹配时距离恰好是 0，
+        比值会除零，而 0 距离恰恰是最强的替换证据。
+      </p>
+    </section>
+
+    <!-- ============================================ 08 -->
+    <section id="calibration">
+      <h2>校准纪律</h2>
+      <p>
+        这一段决定了前面所有数字有没有意义。核心是一条：
+        <strong>被测音频永远不参与任何参数的拟合</strong>。
+      </p>
+
+      <figure>
+        <svg viewBox="0 0 860 380" role="img"
+             aria-label="校准切分示意图：teacher 录音拟合声调原型与段音阈值，learner 录音被判；两者之间有一条隔离带，标注不得自我比对">
+          <defs>
+            <marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+          </defs>
+          <g font-family="var(--mono), monospace" font-size="11.5" fill="currentColor" stroke="none">
+
+            <!-- teacher column -->
+            <text x="40" y="30" font-size="12.5">teacher 录音</text>
+            <text x="40" y="48" font-size="10.5" opacity=".7">Ethan · 语速 120 · 学生要模仿的对象</text>
+            <rect x="40" y="62" width="200" height="42" rx="5"
+                  fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="54" y="88">4 调 × 6 音节 + 2 校准句</text>
+
+            <path d="M140 104 V150" stroke="currentColor" stroke-width="1.2"
+                  marker-end="url(#ar3)" fill="none"/>
+            <text x="152" y="132" font-size="10.5" opacity=".75">拟合</text>
+
+            <rect x="40" y="150" width="200" height="46" rx="5"
+                  fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="54" y="170">声调原型</text>
+            <text x="54" y="186" font-size="10.5" opacity=".72">4 个调的平均 T 值轮廓</text>
+
+            <rect x="40" y="210" width="200" height="46" rx="5"
+                  fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="54" y="230">段音阈值</text>
+            <text x="54" y="246" font-size="10.5" opacity=".72">两侧参考读数的中点</text>
+
+            <!-- ============ the isolation band ============ -->
+            <path d="M330 20 V358" style="stroke: var(--signal)" stroke-width="1.6"
+                  stroke-dasharray="6 5" fill="none"/>
+            <text x="342" y="44" style="fill: var(--signal)" font-size="12">不得自我比对</text>
+            <text x="342" y="64" style="fill: var(--signal)" font-size="10.5" opacity=".85">
+              若一位学生的"正确"音频
+            </text>
+            <text x="342" y="80" style="fill: var(--signal)" font-size="10.5" opacity=".85">
+              就是参考音频本身，
+            </text>
+            <text x="342" y="96" style="fill: var(--signal)" font-size="10.5" opacity=".85">
+              DTW 恒为 0 距离、全部判对。
+            </text>
+
+            <!-- learner column -->
+            <text x="580" y="30" font-size="12.5">learner 录音</text>
+            <text x="580" y="48" font-size="10.5" opacity=".7">Cherry · 语速 180 · 被评测的音频</text>
+            <rect x="580" y="62" width="200" height="42" rx="5"
+                  fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="594" y="88">被测条目</text>
+
+            <path d="M680 104 V150" stroke="currentColor" stroke-width="1.2"
+                  marker-end="url(#ar3)" fill="none"/>
+            <text x="692" y="132" font-size="10.5" opacity=".75">投影</text>
+
+            <rect x="580" y="150" width="200" height="46" rx="5"
+                  fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="594" y="170">T 值轮廓</text>
+            <text x="594" y="186" font-size="10.5" opacity=".72">用 learner 自己的基频范围</text>
+
+            <rect x="580" y="210" width="200" height="46" rx="5"
+                  fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="594" y="230">物理测量</text>
+            <text x="594" y="246" font-size="10.5" opacity=".72">谱重心 / VOT / F3 / 收敛度</text>
+
+            <!-- convergence to verdict -->
+            <path d="M240 173 H470 V280 H520" stroke="currentColor" stroke-width="1.2"
+                  marker-end="url(#ar3)" fill="none"/>
+            <path d="M580 173 H520 V280" stroke="currentColor" stroke-width="1.2" fill="none"/>
+            <path d="M580 233 H520 V296" stroke="currentColor" stroke-width="1.2" fill="none"/>
+            <path d="M240 233 H470 V296 H520" stroke="currentColor" stroke-width="1.2"
+                  marker-end="url(#ar3)" fill="none"/>
+
+            <rect x="520" y="268" width="130" height="42" rx="5"
+                  fill="none" stroke="currentColor" stroke-width="1.6"/>
+            <text x="534" y="294">比对 → 判定</text>
+
+            <text x="40" y="300" font-size="10.5" opacity=".75">还有一条：learner 自己的基频范围</text>
+            <text x="40" y="317" font-size="10.5" opacity=".75">取自 10 条从不计分的校准录音，</text>
+            <text x="40" y="334" font-size="10.5" opacity=".75">同样不来自被测条目。</text>
+
+          </g>
+        </svg>
+        <figcaption>
+          两条录音轨是整套设计的地基。teacher 轨只用于<em>拟合</em>，learner 轨只用于<em>被判</em>，
+          中间那条虚线是硬边界。本基准里 learner 与 teacher 还必须落在不同的语速档位上——
+          <code>say</code> 会把语速量化到粗档，160 和 180 渲染出的音频<em>字节相同</em>，
+          此时整条边界失效而输出上看不出来（见第 10 节第 1 个坑）。
+        </figcaption>
+      </figure>
+
+      <p>完整的对应关系：</p>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>参数</th><th>从什么拟合</th><th>关键约束</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>说话人基频范围 Fmin / Fmax</td>
+              <td>learner 自己的 10 条校准录音</td>
+              <td>分语体：单字用单字范围，整句用整句范围</td>
+            </tr>
+            <tr>
+              <td>声调原型</td>
+              <td>teacher 的正确读音</td>
+              <td>留出被测条目所属的最小对立组</td>
+            </tr>
+            <tr>
+              <td>段音判定阈值</td>
+              <td>该对立组两侧 teacher 读音的实测中点</td>
+              <td>候选测量自动选分离度最高者</td>
+            </tr>
+            <tr>
+              <td>接受半径</td>
+              <td>校准样本到自身原型的距离分布（90 分位）</td>
+              <td>超出即标注"不典型"，不直接判错</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================================ 09 -->
+    <section id="results">
+      <h2>实测表现</h2>
+      <p>
+        同说话人条件，124 条构造性真值语料（40 正确 / 84 错误）。
+        这一组数字是引擎本身能力的上界——跨说话人条件下它会明显退化，
+        原因见第 11 节。
+      </p>
+
+      <div class="tablewrap">
+        <table>
+          <caption>
+            <strong>误收率</strong>（把错误发音判成正确的比例）是发音评测里最要紧的指标——
+            放过一个错误，学生会把错的练成肌肉记忆。<strong>误拒率</strong>是反面。
+          </caption>
+          <thead>
+            <tr>
+              <th>指标</th><th class="num">取值</th><th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>判定准确率</td><td class="num hi">88.7%</td><td>110 / 124</td></tr>
+            <tr><td>平衡准确率</td><td class="num">85.8%</td><td>召回与特异的均值，样本不平衡时更诚实</td></tr>
+            <tr><td>误收率 FAR</td><td class="num hi">6.0%</td><td>84 条错误里放过 5 条</td></tr>
+            <tr><td>误拒率 FRR</td><td class="num">22.5%</td><td>40 条正确里冤枉 9 条</td></tr>
+            <tr><td>声调识别率</td><td class="num">69.0%</td><td>48 / 59，含被误判的条目</td></tr>
+            <tr><td>错误定位率</td><td class="num hi">93.7%</td><td>判错时能说对维度（声调 / 声母 / 韵母）</td></tr>
+            <tr><td>中位延迟</td><td class="num">&lt; 10 ms</td><td>纯 numpy/scipy，可利用音频缓存再降</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>分题型</h3>
+      <div class="tablewrap">
+        <table>
+          <caption>
+            声母组最好：平翘舌靠摩擦段的高低频能量比、送气靠 VOT，两条线索在这个音色上分离度都足够。
+            韵母组最弱，问题集中在圆唇和前后鼻音（表里 separation 0.06–0.09 的那几组）。
+          </caption>
+          <thead>
+            <tr><th>题型</th><th class="num">n</th><th class="num">准确率</th><th class="num">误收率</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>声母 initial</td><td class="num">40</td><td class="num hi">97.5%</td><td class="num hi">0.0%</td></tr>
+            <tr><td>声调 tone</td><td class="num">52</td><td class="num">90.4%</td><td class="num">10.4%</td></tr>
+            <tr><td>韵母 final</td><td class="num">24</td><td class="num">83.3%</td><td class="num hi">0.0%</td></tr>
+            <tr><td>整句 trap</td><td class="num">8</td><td class="num lo">50.0%</td><td class="num hi">0.0%</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>声调混淆矩阵</h3>
+      <div class="tablewrap">
+        <table>
+          <caption>
+            阴平 16/16 完美可分。失分几乎全部集中在"被识别为去声"——
+            这是 <code>say</code> 把上声实现为低降调（21）而非完整的 214 曲折调的直接后果：
+            上声与去声同形，只能靠起点高度区分。换一个把上声读全的音色，这一格应该会改善。
+          </caption>
+          <thead>
+            <tr>
+              <th>实际 ＼ 识别</th><th class="num">T1</th><th class="num">T2</th>
+              <th class="num">T3</th><th class="num">T4</th><th class="num">召回</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>T1 阴平</strong></td><td class="num hi">16</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">16/16</td></tr>
+            <tr><td><strong>T2 阳平</strong></td><td class="num">0</td><td class="num">6</td><td class="num">0</td><td class="num">6</td><td class="num">6/12</td></tr>
+            <tr><td><strong>T3 上声</strong></td><td class="num">0</td><td class="num">0</td><td class="num">5</td><td class="num lo">10</td><td class="num">5/15</td></tr>
+            <tr><td><strong>T4 去声</strong></td><td class="num">0</td><td class="num">0</td><td class="num">2</td><td class="num">13</td><td class="num">13/15</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================================ 10 -->
+    <section id="bugs">
+      <h2>踩过的六个坑</h2>
+      <p>
+        这一节比前面任何一节都更有参考价值。它们有一个共同特征：
+        <strong>没有一个会报错，全都是静默地把数字变好看或变难看</strong>。
+        每一个都是靠"结果看起来不对劲"发现的。
+      </p>
+
+      <div class="bug">
+        <h3>1 · TTS 把语速量化了，两个角色渲染出同一份录音</h3>
+        <dl>
+          <dt>症状</dt>
+          <dd><p>正确条目的模板 DTW 距离恒为 0，"正确"判得完美无缺。</p></dd>
+          <dt>根因</dt>
+          <dd><p>
+            <code>say</code> 把语速吸附到粗粒度档位。设 learner 为 180、teacher 为 160，
+            两者渲染出的音频<strong>字节完全相同</strong>（120/140 一档，160/180 一档，200 一档）。
+            于是学习者的"正确"音频就是参考音频本身，所有 DTW 比对都是自我匹配。
+          </p></dd>
+          <dt>修法</dt>
+          <dd><p>
+            两个角色必须落在不同档位；<code>build_corpus</code> 现在会逐条比对两个文件是否
+            字节相同并告警（当前 <code>n_identical_takes: 0</code>）。
+          </p></dd>
+        </dl>
+      </div>
+
+      <div class="bug">
+        <h3>2 · 校准集的语体和被测语体不匹配</h3>
+        <dl>
+          <dt>症状</dt>
+          <dd><p>准确率从 88.7% 掉到 66.9%，误拒率飙到 77.5%，大量阴平被判成去声。</p></dd>
+          <dt>根因</dt>
+          <dd><p>
+            校准集里混进了两条整句，把 learner 的基频范围撑成 133–351 Hz，
+            而声调原型是在 teacher 的<em>单字</em>范围（152–273 Hz）里拟合的。
+            两个 T 值空间错位，单字的阴平被投影成下降，正好落进去声原型的形状。
+            （这正是上面图 3 画的东西。）
+          </p></dd>
+          <dt>修法</dt>
+          <dd><p>
+            基频范围<strong>按语体分开</strong>：单字用单字范围，整句用整句范围，
+            两侧都对齐。同时给整句单独拟合一套语调原型。这一项把准确率拉回 88.7%。
+          </p></dd>
+        </dl>
+      </div>
+
+      <div class="bug">
+        <h3>3 · 短片段上的方差归一化把不同音节压成同一形状</h3>
+        <dl>
+          <dt>症状</dt>
+          <dd><p>最近参考模板比对频繁抛除零；追下去发现距离<em>恰好</em>是 0。</p></dd>
+          <dt>根因</dt>
+          <dd><p>
+            倒谱归一化顺手做了减均值和除标准差。对整句没问题，
+            但一个音节只有 5–15 帧，在这个长度上除以标准差会把噪声放大到单位方差，
+            两个本来不同的音节归一化成了同一条曲线。
+          </p></dd>
+          <dt>修法</dt>
+          <dd><p>
+            只减均值。这本来就是 CMN（cepstral mean normalization）的字面意思，
+            是我自己多加了一步方差归一化。
+          </p></dd>
+        </dl>
+      </div>
+
+      <div class="bug">
+        <h3>4 · 用比值判断"更像哪一侧"，在完美匹配时除零</h3>
+        <dl>
+          <dt>症状</dt>
+          <dd><p>声母对立组大面积抛 <code>ZeroDivisionError</code>，64 个条目全挂。</p></dd>
+          <dt>根因</dt>
+          <dd><p>
+            判据原本写成"期望侧距离 / 最近侧距离 &gt; 阈值"。
+            当被测音频与替换侧参考<em>完美</em>匹配时，分子为 0——而这恰恰是<strong>最强的替换证据</strong>，
+            却被除零保护吞掉了。
+          </p></dd>
+          <dt>修法</dt>
+          <dd><p>
+            改成判<strong>距离差</strong>：<code>gap &gt; max(0.35, 0.25 × |期望侧距离|)</code>。
+            绝对下限避免两个极小距离在噪声里误触发，相对下限让判据随期望侧的偏离程度缩放。
+          </p></dd>
+        </dl>
+      </div>
+
+      <div class="bug">
+        <h3>5 · 拼音解析只认数字调号，模型返回的是带调号的拼音</h3>
+        <dl>
+          <dt>症状</dt>
+          <dd><p>陷阱句 8 条里有 7 条被判为"不可解析"，静默退化成无结论。</p></dd>
+          <dt>根因</dt>
+          <dd><p>
+            解析器只处理 <code>shui4</code> 这种写法，模型实际返回的是
+            <code>shuì</code>，有时还写成<code>wǒ xiǎng chī shuì jiào 3 3 1 4</code>——
+            带调号，末尾再附一串裸数字。
+          </p></dd>
+          <dt>修法</dt>
+          <dd><p>
+            补上调号解码，并容忍混合写法。解析结果现在与 <code>analyze()</code>
+            在全部音素上逐条对齐（有测试钉住）。顺带修了一个相关 bug：
+            无调号的 <code>ü</code> 曾被当成轻声标记，吞掉 <code>nü3</code> 里的调号。
+          </p></dd>
+        </dl>
+      </div>
+
+      <div class="bug">
+        <h3>6 · 拿"听对了"当"判对了"</h3>
+        <dl>
+          <dt>症状</dt>
+          <dd><p>
+            同一个系统上，声调识别率 74.6%（很高）配误收率 80.2%（也"很高"）——
+            两个数字不可能同时成立。
+          </p></dd>
+          <dt>根因</dt>
+          <dd><p>
+            这是评测脚本的 bug 而不是引擎的。在"不给目标文本"的档位里，
+            我把模型转写结果与<em>音频实际内容</em>比对，于是
+            "正确地听出了错误发音"被判成了"把错误判成了正确"。
+            那测的是感知，不是判定。
+          </p></dd>
+          <dt>修法</dt>
+          <dd><p>
+            拆成两个问题分别记：<em>perception</em>（转写是否匹配音频实际内容）
+            与 <em>verdict</em>（转写是否匹配学习者本该说的）。误收率取后者。
+            修完之后同一个模型的表现从"自相矛盾"变成"清晰可解释"：
+            误收率 3.8% → 50.0%，声调识别 75.0% → 23.3%，唯一变量是提示词里有没有写目标文本。
+          </p></dd>
+        </dl>
+      </div>
+    </section>
+
+    <!-- ============================================ 11 -->
+    <section id="limits">
+      <h2>已知短板</h2>
+      <ul>
+        <li>
+          <strong>跨说话人会明显退化。</strong>换成 Cherry → Ethan 之后，准确率从 88.7% 掉到 64.5%，
+          误拒率从 22.5% 涨到 75%。查过不是 bug：teacher 音色的孤立字声调实现本身区分度就低——
+          实测其 T1 原型 3.5→2.9、T2 原型 1.9→2.0（几乎不升），T1 的类内离散度高达 0.97。
+          <em>原型是糊的，判定就散。</em>这说明整条路线有个隐含前提：参考发音本身必须足够标准。
+        </li>
+        <li>
+          <strong>整句判定偏严。</strong>聚合时取全部音节里最强的证据，非焦点音节的误判也会拖垮整句结论。
+          陷阱句的对照句误拒率因此是 100%——它靠"什么都判错"换来 0% 的误收，不是真本事。
+        </li>
+        <li>
+          <strong>上声 / 去声在低降调音色下不可分。</strong>见混淆矩阵：T3 有 10 条被判成 T4。
+          物理上两者同形时，只剩起点高度一个线索。
+        </li>
+        <li>
+          <strong>段音线索的阈值只由一对参考读数定出</strong>，噪声不小。
+          圆唇组被迫启用了 F3 的派生量而非 F3 本身，就是这次标定噪声的证据。
+          要稳，应该每个成员录多条参考取分布。
+        </li>
+        <li>
+          <strong>没有真正的 GOP。</strong>模板 DTW 距离保留了"像不像"的排序，
+          但失去了对数后验概率比的概率解释，也无法输出"替代成了哪个音素"这种竞争音素信息。
+        </li>
+      </ul>
+    </section>
+
+  </main>
+
+  <footer>
+    <span>captbench · 传统声学引擎</span>
+    <span>github.com/mutsunn1/benchmark-audiotest</span>
+    <span>101 个单元测试</span>
+  </footer>
+
+</div>
