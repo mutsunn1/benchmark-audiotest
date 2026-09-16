@@ -243,12 +243,36 @@ def cmd_report(args, settings: Settings) -> int:
     return 0
 
 
+def _corpus_matches(existing: Manifest, args) -> bool:
+    """Does the built corpus match what this invocation is asking for?
+
+    A manifest built by one TTS backend must not be scored as if it came from
+    another - `--tts qwen` against a `say` corpus would report cross-speaker
+    numbers that are really same-speaker, with nothing in the output to say so.
+    """
+    if existing.backend != getattr(args, "tts", None):
+        return False
+    if getattr(args, "voice", None) and existing.voice != args.voice:
+        return False
+    if getattr(args, "teacher_voice", None) and existing.teacher_voice != args.teacher_voice:
+        return False
+    return True
+
+
 def cmd_run(args, settings: Settings) -> int:
     needs_build = args.force or not settings.manifest_path.exists()
     if not needs_build:
         existing = Manifest.load(settings.manifest_path)
-        if existing.missing_audio(settings.data_dir):
-            print("manifest references missing audio - rebuilding the corpus")
+        missing = existing.missing_audio(settings.data_dir)
+        if missing:
+            print(f"manifest references {len(missing)} missing audio file(s) - rebuilding")
+            needs_build = True
+        elif not _corpus_matches(existing, args):
+            print(
+                f"corpus was built with backend={existing.backend!r} "
+                f"voice={existing.voice!r} teacher={existing.teacher_voice!r}; "
+                f"this run asks for backend={args.tts!r} - rebuilding"
+            )
             needs_build = True
     if needs_build:
         cmd_build(args, settings)
